@@ -1,1 +1,3 @@
 py.win patch notes
+
+noop: connector write check
