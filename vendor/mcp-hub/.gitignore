@@ -1,0 +1,11 @@
+node_modules
+mcphub.nvim/
+.env
+*.tgz
+dist/
+*.avanterules
+*.log
+.r*
+build/
+/result
+junk/

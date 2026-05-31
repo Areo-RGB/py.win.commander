@@ -1,0 +1,1602 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Windows WebView Backend Scaffold</title>
+  <style>
+    /* --- Windows 11 Native Aesthetic Variable Definitions --- */
+    :root {
+      --font-family: "Segoe UI Variable Text", "Segoe UI", -apple-system, BlinkMacSystemFont, system-ui, sans-serif;
+      --bg-app: #f3f3f3; 
+      --bg-sidebar: #f9f9f9;
+      --bg-submenu: #f3f3f3;
+      --bg-content: #ffffff;
+      
+      --accent-color: #005fb8; 
+      --accent-hover: #186cb8;
+      --accent-light: #e0eef9;
+      
+      --text-primary: #1a1a1a;
+      --text-secondary: #5f5f5f;
+      --text-disabled: #9e9e9e;
+      
+      --border-color: #e5e5e5;
+      --border-focus: #005fb8;
+      
+      --transition-speed: 0.15s;
+      --sidebar-width: 88px;
+      --submenu-width: 260px;
+      --content-pad-x: clamp(32px, 3vw, 56px);
+      --content-pad-y: clamp(24px, 2.4vh, 40px);
+      --header-height: 104px;
+    }
+
+    * {
+      box-sizing: border-box;
+      margin: 0;
+      padding: 0;
+    }
+
+    body {
+      font-family: var(--font-family);
+      background-color: var(--bg-app);
+      color: var(--text-primary);
+      width: 100vw;
+      min-width: 1024px;
+      height: 100vh;
+      display: flex;
+      overflow: hidden;
+      -webkit-user-select: none;
+      user-select: none;
+    }
+
+    /* --- App Container --- */
+    .app-container {
+      display: flex;
+      width: 100vw;
+      height: 100vh;
+      border: 0;
+      background-color: var(--bg-content);
+    }
+
+    /* --- Primary Sidebar (Icon + Under-text Tabs) --- */
+    .primary-sidebar {
+      width: var(--sidebar-width);
+      background-color: var(--bg-sidebar);
+      border-right: 1px solid var(--border-color);
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      padding: 18px 0;
+      gap: 10px;
+      flex-shrink: 0;
+    }
+
+    /* Icon/Tab Button Wrapper */
+    .tab-btn {
+      width: 78px;
+      background: none;
+      border: none;
+      outline: none;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      cursor: pointer;
+      position: relative;
+      padding: 6px 0;
+      border-radius: 4px;
+      transition: background-color var(--transition-speed);
+    }
+
+    /* The pill indicator container for the icon */
+    .icon-container {
+      width: 44px;
+      height: 28px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      border-radius: 14px;
+      transition: background-color var(--transition-speed), color var(--transition-speed);
+      color: var(--text-secondary);
+    }
+
+    .icon-container svg {
+      width: 20px;
+      height: 20px;
+      stroke-width: 1.5;
+    }
+
+    /* Text label under the icon */
+    .tab-label {
+      font-size: 10.5px;
+      font-weight: 500;
+      color: var(--text-secondary);
+      margin-top: 5px;
+      text-align: center;
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      width: 100%;
+      padding: 0 2px;
+    }
+
+    /* Hover States */
+    .tab-btn:hover .icon-container {
+      background-color: rgba(0, 0, 0, 0.05);
+      color: var(--text-primary);
+    }
+    
+    .tab-btn:hover .tab-label {
+      color: var(--text-primary);
+    }
+
+    /* Active States */
+    .tab-btn.active .icon-container {
+      background-color: var(--accent-light);
+      color: var(--accent-color);
+    }
+
+    .tab-btn.active .tab-label {
+      color: var(--text-primary);
+      font-weight: 600;
+    }
+
+    /* Active Left Visual Indicator bar */
+    .tab-btn.active::before {
+      content: '';
+      position: absolute;
+      left: 0;
+      top: 15%;
+      height: 70%;
+      width: 3px;
+      background-color: var(--accent-color);
+      border-radius: 0 2px 2px 0;
+    }
+
+    /* --- Secondary Submenu Panel --- */
+    .submenu-panel {
+      width: var(--submenu-width);
+      background-color: var(--bg-submenu);
+      border-right: 1px solid var(--border-color);
+      display: flex;
+      flex-direction: column;
+      transition: width var(--transition-speed), opacity var(--transition-speed);
+      overflow-y: auto;
+      flex-shrink: 0;
+    }
+
+    .submenu-panel.hidden {
+      width: 0;
+      border-right: none;
+      overflow: hidden;
+      opacity: 0;
+    }
+
+    .submenu-header {
+      padding: 22px 20px 12px 20px;
+      font-size: 15px;
+      font-weight: 600;
+      color: var(--text-primary);
+      letter-spacing: -0.1px;
+    }
+
+    .submenu-list {
+      list-style-type: none;
+      padding: 0 12px;
+    }
+
+    .submenu-item {
+      display: flex;
+      align-items: center;
+      width: 100%;
+      padding: 10px 14px;
+      font-size: 13px;
+      color: var(--text-secondary);
+      text-decoration: none;
+      border-radius: 4px;
+      margin-bottom: 2px;
+      cursor: pointer;
+      border: none;
+      background: transparent;
+      text-align: left;
+      transition: background-color var(--transition-speed), color var(--transition-speed);
+    }
+
+    .submenu-item:hover {
+      background-color: rgba(0, 0, 0, 0.04);
+      color: var(--text-primary);
+    }
+
+    .submenu-item.active {
+      background-color: rgba(0, 0, 0, 0.06);
+      color: var(--accent-color);
+      font-weight: 500;
+    }
+
+    /* --- Main Content View Area --- */
+    .main-content {
+      flex: 1 1 auto;
+      min-width: 0;
+      background-color: var(--bg-content);
+      display: flex;
+      flex-direction: column;
+      overflow: hidden;
+    }
+
+    .content-header {
+      height: var(--header-height);
+      padding: 24px var(--content-pad-x);
+      border-bottom: 1px solid var(--border-color);
+      flex-shrink: 0;
+      display: flex;
+      flex-direction: column;
+      justify-content: center;
+    }
+
+    .breadcrumbs {
+      font-size: 11px;
+      color: var(--text-secondary);
+      margin-bottom: 4px;
+      text-transform: uppercase;
+      letter-spacing: 0.5px;
+    }
+
+    .content-title {
+      font-size: 28px;
+      font-weight: 600;
+      color: var(--text-primary);
+      letter-spacing: -0.3px;
+    }
+
+    .content-body {
+      flex: 1 1 auto;
+      min-height: 0;
+      overflow-y: auto;
+      padding: var(--content-pad-y) var(--content-pad-x);
+      max-width: none;
+      width: 100%;
+    }
+
+    /* Decorative mock desktop app elements */
+    .placeholder-card {
+      border: 1px solid var(--border-color);
+      border-radius: 8px;
+      padding: 22px;
+      background-color: #ffffff;
+      box-shadow: 0 1px 3px rgba(0,0,0,0.05);
+      margin-bottom: 16px;
+    }
+
+    .placeholder-card h4 {
+      margin-bottom: 8px;
+      font-size: 14px;
+      font-weight: 600;
+    }
+
+    .placeholder-card p {
+      font-size: 13px;
+      color: var(--text-secondary);
+      line-height: 1.5;
+    }
+
+    /* --- Windows Styled Tables & Input Controls --- */
+    .win-table {
+      width: 100%;
+      border-collapse: collapse;
+      font-size: 13px;
+      margin-top: 16px;
+      text-align: left;
+    }
+
+    .win-table th {
+      background-color: #fbfbfb;
+      border-bottom: 2px solid var(--border-color);
+      padding: 10px 12px;
+      font-weight: 600;
+      color: var(--text-secondary);
+    }
+
+    .win-table td {
+      border-bottom: 1px solid var(--border-color);
+      padding: 8px 12px;
+      vertical-align: middle;
+    }
+
+    .win-table tr:hover {
+      background-color: rgba(0, 0, 0, 0.01);
+    }
+
+    .win-input {
+      width: 100%;
+      padding: 5px 8px;
+      font-family: var(--font-family);
+      font-size: 13px;
+      border: 1px solid var(--border-color);
+      border-radius: 4px;
+      background-color: #ffffff;
+      color: var(--text-primary);
+    }
+
+    .win-input:focus {
+      border-color: var(--border-focus);
+      outline: none;
+    }
+
+    .action-btn-group {
+      display: flex;
+      gap: 6px;
+    }
+
+    .btn-sm {
+      padding: 4px 10px;
+      font-size: 11.5px;
+      border-radius: 4px;
+      cursor: pointer;
+    }
+
+    /* Windows style Buttons */
+    .win-btn {
+      background-color: var(--accent-color);
+      color: #ffffff;
+      border: 1px solid rgba(0, 0, 0, 0.1);
+      border-bottom-color: rgba(0, 0, 0, 0.2);
+      padding: 6px 16px;
+      font-size: 12.5px;
+      border-radius: 4px;
+      cursor: pointer;
+      font-family: var(--font-family);
+      font-weight: 500;
+    }
+
+    .win-btn:hover {
+      background-color: var(--accent-hover);
+    }
+
+    .btn-secondary {
+      background-color: #ffffff;
+      border: 1px solid var(--border-color);
+      color: var(--text-primary);
+    }
+
+    .btn-secondary:hover {
+      background-color: #f5f5f5;
+    }
+
+    .btn-danger {
+      background-color: #ffffff;
+      border: 1px solid #d32f2f;
+      color: #d32f2f;
+    }
+
+    .btn-danger:hover {
+      background-color: #fdf2f2;
+    }
+
+    .table-actions-container {
+      margin-top: 16px;
+      display: flex;
+      justify-content: flex-start;
+    }
+
+
+    /* --- pywebview script runner additions --- */
+    .runner-layout { display: grid; grid-template-columns: minmax(760px, 1.55fr) minmax(430px, 0.85fr); gap: 24px; align-items: stretch; min-height: calc(100vh - var(--header-height) - (var(--content-pad-y) * 2)); }
+    .runner-stack { display: flex; flex-direction: column; gap: 16px; min-height: 0; }
+    .runner-layout > .placeholder-card, .runner-layout > .runner-stack { min-height: 0; }
+    .form-row { display: flex; gap: 10px; align-items: center; flex-wrap: wrap; }
+    .field-label { display: block; font-size: 12.5px; font-weight: 600; color: var(--text-secondary); margin-bottom: 6px; }
+    .runner-textarea { width: 100%; min-height: 560px; flex: 1 1 auto; resize: none; font-family: Consolas, "Cascadia Mono", monospace; font-size: 13px; line-height: 1.5; }
+    .env-textarea { min-height: 96px; resize: vertical; }
+    .runner-output { min-height: 330px; flex: 1 1 auto; overflow: auto; white-space: pre-wrap; font-family: Consolas, "Cascadia Mono", monospace; font-size: 13px; line-height: 1.5; background: #fbfbfb; border: 1px solid var(--border-color); border-radius: 6px; padding: 14px; user-select: text; }
+    .status-pill { display: inline-flex; align-items: center; gap: 6px; border: 1px solid var(--border-color); border-radius: 999px; padding: 5px 12px; font-size: 12px; color: var(--text-secondary); background: #fff; }
+    .hint-chip { border: 1px solid var(--border-color); border-radius: 999px; background: #fff; padding: 5px 10px; font-size: 12px; cursor: pointer; }
+    .hint-chip:hover { border-color: var(--accent-color); color: var(--accent-color); }
+    .history-list { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 12px; }
+    .history-item { border: 1px solid var(--border-color); border-radius: 8px; padding: 12px; background: #fff; font-size: 12.5px; }
+    .history-meta { color: var(--text-secondary); margin-top: 5px; font-family: Consolas, "Cascadia Mono", monospace; word-break: break-all; }
+    .path-text { font-family: Consolas, "Cascadia Mono", monospace; font-size: 12.5px; color: var(--text-secondary); word-break: break-all; user-select: text; }
+    .runtime-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 16px; }
+    .terminal-layout { display: grid; grid-template-columns: minmax(520px, 0.95fr) minmax(620px, 1.05fr); gap: 24px; align-items: start; }
+    .terminal-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 12px; }
+    .terminal-card { border: 1px solid var(--border-color); border-radius: 8px; background: #fff; padding: 16px; display: flex; flex-direction: column; gap: 10px; }
+    .terminal-card h4 { margin: 0; font-size: 14px; }
+    .terminal-meta { color: var(--text-secondary); font-size: 12.5px; line-height: 1.45; }
+    .terminal-note { border-left: 3px solid var(--accent-color); background: var(--accent-light); padding: 12px 14px; border-radius: 6px; font-size: 13px; color: var(--text-primary); line-height: 1.5; }
+    .terminal-command-preview { min-height: 90px; white-space: pre-wrap; user-select: text; }
+    .browser-split { display: grid; grid-template-columns: minmax(620px, 1.35fr) minmax(420px, 0.65fr); gap: 24px; min-height: calc(100vh - var(--header-height) - (var(--content-pad-y) * 2)); }
+    .browser-frame { width: 100%; min-height: 720px; border: 1px solid var(--border-color); border-radius: 8px; background: #fff; }
+    .browser-controls { display: flex; flex-direction: column; gap: 14px; align-self: start; }
+    .browser-toolbar { display: flex; gap: 10px; align-items: center; }
+    .browser-toolbar .win-input { flex: 1 1 auto; }
+    .warehouse-grid { display: grid; grid-template-columns: minmax(520px, 0.85fr) minmax(620px, 1.15fr); gap: 24px; align-items: start; }
+    .warehouse-actions { display: flex; flex-wrap: wrap; gap: 10px; align-items: center; }
+    .warehouse-project-list { max-height: 430px; overflow: auto; border: 1px solid var(--border-color); border-radius: 8px; background: #fff; }
+    .warehouse-project-row { display: grid; grid-template-columns: 26px minmax(150px, 0.65fr) minmax(150px, 0.55fr) minmax(260px, 1.3fr); gap: 10px; align-items: center; padding: 9px 12px; border-bottom: 1px solid var(--border-color); font-size: 12.5px; }
+    .warehouse-project-row:last-child { border-bottom: none; }
+    .warehouse-project-header { position: sticky; top: 0; z-index: 1; background: #fbfbfb; color: var(--text-secondary); font-weight: 600; }
+    .warehouse-last-change { color: var(--text-secondary); font-family: Consolas, "Cascadia Mono", monospace; font-size: 12px; }
+    .warehouse-output { min-height: 360px; white-space: pre-wrap; user-select: text; }
+    .mcp-grid { display: grid; grid-template-columns: minmax(460px, 0.75fr) minmax(640px, 1.25fr); gap: 24px; align-items: start; }
+    .mcp-actions { display: flex; flex-wrap: wrap; gap: 10px; align-items: center; }
+    .mcp-meta { display: grid; gap: 8px; margin-top: 12px; font-size: 12.5px; color: var(--text-secondary); }
+    .mcp-status-line { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; margin: 12px 0; }
+    .mcp-log { min-height: 260px; max-height: 360px; overflow: auto; white-space: pre-wrap; word-break: break-word; user-select: text; }
+    .mcp-log-header { display: flex; align-items: center; justify-content: space-between; gap: 12px; }
+    .mcp-add-form { border: 1px solid var(--border-color); border-radius: 8px; padding: 14px; background: #fbfbfb; display: grid; gap: 10px; }
+    .mcp-add-grid { display: grid; grid-template-columns: minmax(160px, 1fr) minmax(140px, 0.7fr); gap: 10px; }
+    .mcp-server-name { font-weight: 600; }
+    .mcp-count { font-family: Consolas, "Cascadia Mono", monospace; color: var(--text-secondary); }
+    @media (max-width: 1280px) { .runner-layout, .runtime-grid, .history-list, .terminal-layout, .terminal-grid, .browser-split, .warehouse-grid, .mcp-grid { grid-template-columns: 1fr; } .runner-textarea { min-height: 360px; resize: vertical; } .runner-output { min-height: 240px; } }
+
+  </style>
+</head>
+<body>
+
+  <div class="app-container">
+    
+    <!-- PRIMARY SIDEBAR -->
+    <aside class="primary-sidebar">
+      
+      <!-- Cleaner Tab -->
+      <button class="tab-btn active" data-tab="cleaner">
+        <div class="icon-container">
+          <svg fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
+            <path stroke-linecap="round" stroke-linejoin="round" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"></path>
+          </svg>
+        </div>
+        <span class="tab-label">Cleaner</span>
+      </button>
+
+      <!-- Media Tab -->
+      <button class="tab-btn" data-tab="media">
+        <div class="icon-container">
+          <svg fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
+            <path stroke-linecap="round" stroke-linejoin="round" d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z"></path>
+          </svg>
+        </div>
+        <span class="tab-label">Media</span>
+      </button>
+
+      <!-- Run Scripts Tab -->
+      <button class="tab-btn" data-tab="scripts">
+        <div class="icon-container">
+          <svg fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
+            <path stroke-linecap="round" stroke-linejoin="round" d="M8 9l3 3-3 3m5 0h3M5 20h14a2 2 0 002-2V6a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z"></path>
+          </svg>
+        </div>
+        <span class="tab-label">Run Scripts</span>
+      </button>
+
+      <!-- Data Tab -->
+      <button class="tab-btn" data-tab="data">
+        <div class="icon-container">
+          <svg fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
+            <path stroke-linecap="round" stroke-linejoin="round" d="M3 10h18M3 14h18m-9-4v8m-7 0h14a2 2 0 002-2V8a2 2 0 00-2-2H5a2 2 0 00-2 2v8a2 2 0 002 2z"></path>
+          </svg>
+        </div>
+        <span class="tab-label">Data</span>
+      </button>
+
+
+      <!-- Warehouse Tab -->
+      <button class="tab-btn" data-tab="warehouse">
+        <div class="icon-container">
+          <svg fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
+            <path stroke-linecap="round" stroke-linejoin="round" d="M3 7h18M5 7v12a2 2 0 002 2h10a2 2 0 002-2V7M8 7V5a2 2 0 012-2h4a2 2 0 012 2v2M9 12h6"></path>
+          </svg>
+        </div>
+        <span class="tab-label">Warehouse</span>
+      </button>
+
+      <!-- MCP Hub Tab -->
+      <button class="tab-btn" data-tab="mcp">
+        <div class="icon-container">
+          <svg fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
+            <path stroke-linecap="round" stroke-linejoin="round" d="M4 6a2 2 0 012-2h12a2 2 0 012 2v3a2 2 0 01-2 2H6a2 2 0 01-2-2V6zM4 15a2 2 0 012-2h12a2 2 0 012 2v3a2 2 0 01-2 2H6a2 2 0 01-2-2v-3zM8 7h.01M8 16h.01M12 7h4M12 16h4"></path>
+          </svg>
+        </div>
+        <span class="tab-label">MCP Hub</span>
+      </button>
+
+      <!-- Settings Tab -->
+      <button class="tab-btn" data-tab="settings">
+        <div class="icon-container">
+          <svg fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
+            <path stroke-linecap="round" stroke-linejoin="round" d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z"></path>
+            <path stroke-linecap="round" stroke-linejoin="round" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"></path>
+          </svg>
+        </div>
+        <span class="tab-label">Settings</span>
+      </button>
+
+      <!-- CWC Tab -->
+      <button class="tab-btn" data-tab="cwc">
+        <div class="icon-container">
+          <svg fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
+            <path stroke-linecap="round" stroke-linejoin="round" d="M8 12h.01M12 12h.01M16 12h.01M21 12c0 4.418-4.03 8-9 8a9.863 9.863 0 01-4.255-.949L3 20l1.395-3.72C3.512 15.042 3 13.574 3 12c0-4.418 4.03-8 9-8s9 3.582 9 8z"></path>
+          </svg>
+        </div>
+        <span class="tab-label">CWC</span>
+      </button>
+
+      <!-- Scrcpy Tab -->
+      <button class="tab-btn" data-tab="scrcpy">
+        <div class="icon-container">
+          <svg fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
+            <path stroke-linecap="round" stroke-linejoin="round" d="M12 18h.01M8 21h8a2 2 0 002-2V5a2 2 0 00-2-2H8a2 2 0 00-2 2v14a2 2 0 002 2z"></path>
+          </svg>
+        </div>
+        <span class="tab-label">Scrcpy</span>
+      </button>
+
+      <!-- Browser Tab -->
+      <button class="tab-btn" data-tab="browser">
+        <div class="icon-container">
+          <svg fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
+            <path stroke-linecap="round" stroke-linejoin="round" d="M3 5h18v14H3zM3 9h18M7 7h.01M10 7h.01M13 7h.01"></path>
+          </svg>
+        </div>
+        <span class="tab-label">Browser</span>
+      </button>
+
+      <!-- Terminals Tab -->
+      <button class="tab-btn" data-tab="terminals">
+        <div class="icon-container">
+          <svg fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
+            <path stroke-linecap="round" stroke-linejoin="round" d="M8 9l3 3-3 3m5 0h3M4 5h16a1 1 0 011 1v12a1 1 0 01-1 1H4a1 1 0 01-1-1V6a1 1 0 011-1z"></path>
+          </svg>
+        </div>
+        <span class="tab-label">Terminals</span>
+      </button>
+
+    </aside>
+
+    <!-- SECONDARY SUBMENU PANEL -->
+    <aside class="submenu-panel" id="submenuPanel">
+      <div class="submenu-header" id="submenuTitle">Cleaner Panel</div>
+      <ul class="submenu-list" id="submenuList">
+        <!-- Filled dynamically -->
+      </ul>
+    </aside>
+
+    <!-- MAIN CONTENT VIEW -->
+    <main class="main-content">
+      <header class="content-header">
+        <div class="breadcrumbs" id="breadcrumbTrail">Cleaner / Dashboard</div>
+        <h1 class="content-title" id="contentTitle">System Cleanup</h1>
+      </header>
+      
+      <section class="content-body" id="contentBody">
+        <!-- Content dynamically generated in script -->
+      </section>
+    </main>
+
+  </div>
+
+  <script>
+
+    let backendReady = false;
+    let backendState = null;
+    let keyValueData = [
+      { name: "ServerEndpoint", value: "https://api.internal.net/v2", isEditing: false },
+      { name: "MaxThreadCount", value: "12", isEditing: false },
+      { name: "SessionTimeout", value: "1800", isEditing: false },
+      { name: "EnableTelemetry", value: "False", isEditing: false }
+    ];
+    let mcpHubPollTimer = null;
+
+    const navigationData = {
+      cleaner: {
+        title: "Cleaner",
+        submenus: [
+          { id: "cleaner-dashboard", name: "System Cleanup" },
+          { id: "cleaner-registry", name: "Registry Optimizer" }
+        ],
+        defaultContent: {
+          title: "System Cleanup",
+          body: `<div class="placeholder-card"><h4>Disk Space Status</h4><p>Analyze and release storage space allocated by transient logs, system temp caches, and junk files.</p></div><button class="win-btn">Run Scan</button>`
+        }
+      },
+      media: {
+        title: "Media Tools",
+        submenus: [
+          { id: "media-compress", name: "Video Compressor" },
+          { id: "media-audio", name: "Audio Transcoder" }
+        ],
+        defaultContent: {
+          title: "Video Compressor",
+          body: `<div class="placeholder-card"><h4>Select File</h4><p>Drag and drop media here to begin optimization and container conversion pipelines.</p></div>`
+        }
+      },
+      scripts: {
+        title: "Run Scripts",
+        submenus: [
+          { id: "script-runner", name: "Clipboard Runner" },
+          { id: "script-history", name: "Run History" }
+        ],
+        defaultContent: { title: "Clipboard Runner", body: "" }
+      },
+      data: {
+        title: "Data Utility",
+        submenus: [
+          { id: "data-config-table", name: "Configuration Table" },
+          { id: "data-dedup", name: "Data Deduplication" }
+        ],
+        defaultContent: { title: "Configuration Table", body: "" }
+      },
+
+      warehouse: {
+        title: "Warehouse",
+        submenus: [
+          { id: "warehouse-github", name: "GitHub" },
+          { id: "warehouse-zip", name: "Zip Projects" },
+          { id: "warehouse-repomix", name: "Repomix" },
+          { id: "warehouse-settings", name: "Paths & Settings" }
+        ],
+        defaultContent: { title: "Warehouse", body: "" }
+      },
+      mcp: {
+        title: "MCP Hub",
+        submenus: [
+          { id: "mcp-hub-control", name: "Hub Control" }
+        ],
+        defaultContent: { title: "Hub Control", body: "" }
+      },
+      settings: {
+        title: "Settings",
+        submenus: [
+          { id: "settings-general", name: "General Preferences" },
+          { id: "settings-environment", name: "Runtime Environment" },
+          { id: "settings-about", name: "Application License" }
+        ],
+        defaultContent: { title: "General Preferences", body: `<div class="placeholder-card"><h4>Behavior</h4><p>Configure startup routines, notification priority values, and localized interface scale settings.</p></div>` }
+      },
+      cwc: {
+        title: "CWC",
+        submenus: [],
+        defaultContent: { title: "CWC Integration", body: `<div class="placeholder-card"><h4>Communications Console</h4><p>This panel displays real-time execution outputs and communication feeds related to the CWC protocol layer.</p></div>` }
+      },
+      scrcpy: {
+        title: "Scrcpy",
+        submenus: [ { id: "scrcpy-mirror", name: "Screen Mirror" } ],
+        defaultContent: { title: "Screen Mirror", body: `<div class="placeholder-card"><h4>ADB Device Discovery</h4><p>Verify that USB debugging protocols are active before initializing stream output.</p></div><button class="win-btn">Detect Devices</button>` }
+      },
+      browser: {
+        title: "Browser",
+        submenus: [
+          { id: "browser-webview", name: "Split WebView" }
+        ],
+        defaultContent: { title: "Split WebView", body: "" }
+      },
+      terminals: {
+        title: "Terminals",
+        submenus: [
+          { id: "terminal-launcher", name: "Alacritty Launcher" }
+        ],
+        defaultContent: { title: "Alacritty Launcher", body: "" }
+      }
+    };
+
+    const tabButtons = document.querySelectorAll('.tab-btn');
+    const submenuPanel = document.getElementById('submenuPanel');
+    const submenuTitle = document.getElementById('submenuTitle');
+    const submenuList = document.getElementById('submenuList');
+    const breadcrumbTrail = document.getElementById('breadcrumbTrail');
+    const contentTitle = document.getElementById('contentTitle');
+    const contentBody = document.getElementById('contentBody');
+
+    async function callBackend(method, ...args) {
+      if (!window.pywebview || !window.pywebview.api || !window.pywebview.api[method]) {
+        throw new Error('pywebview backend is not ready yet.');
+      }
+      return await window.pywebview.api[method](...args);
+    }
+
+    async function initializeBackend() {
+      try {
+        backendState = await callBackend('get_state');
+        backendReady = true;
+      } catch (error) {
+        console.error(error);
+      }
+      selectTab('scripts');
+    }
+
+    window.addEventListener('pywebviewready', initializeBackend);
+    setTimeout(() => { if (!backendReady) selectTab('scripts'); }, 700);
+
+    function selectTab(tabKey) {
+      if (mcpHubPollTimer && tabKey !== 'mcp') { clearInterval(mcpHubPollTimer); mcpHubPollTimer = null; }
+      tabButtons.forEach(btn => btn.classList.toggle('active', btn.getAttribute('data-tab') === tabKey));
+      const data = navigationData[tabKey];
+      if (!data) return;
+
+      if (data.submenus && data.submenus.length > 0) {
+        submenuPanel.classList.remove('hidden');
+        submenuTitle.textContent = data.title;
+        submenuList.innerHTML = '';
+        data.submenus.forEach((sub, index) => {
+          const li = document.createElement('li');
+          const button = document.createElement('button');
+          button.className = `submenu-item ${index === 0 ? 'active' : ''}`;
+          button.textContent = sub.name;
+          button.onclick = () => selectSubmenu(sub, data.title, button);
+          li.appendChild(button);
+          submenuList.appendChild(li);
+        });
+        routeSubmenu(data.submenus[0], data.title);
+      } else {
+        submenuPanel.classList.add('hidden');
+        updateMainContent(data.title, '', data.defaultContent.body);
+      }
+    }
+
+    function selectSubmenu(submenu, parentTitle, targetElement) {
+      const activeItem = submenuList.querySelector('.submenu-item.active');
+      if (activeItem) activeItem.classList.remove('active');
+      targetElement.classList.add('active');
+      routeSubmenu(submenu, parentTitle);
+    }
+
+    function routeSubmenu(submenu, parentTitle) {
+      if (submenu.id === 'data-config-table') return renderConfigTable();
+      if (submenu.id === 'script-runner') return renderScriptRunner();
+      if (submenu.id === 'script-history') return renderHistoryPage();
+      if (submenu.id === 'settings-environment') return renderEnvironmentPage();
+      if (submenu.id === 'browser-webview') return renderBrowserWebView();
+      if (submenu.id === 'terminal-launcher') return renderTerminalLauncher();
+      if (submenu.id === 'warehouse-github') return renderWarehouseGitHub();
+      if (submenu.id === 'warehouse-zip') return renderWarehouseZip();
+      if (submenu.id === 'warehouse-repomix') return renderWarehouseRepomix();
+      if (submenu.id === 'warehouse-settings') return renderWarehouseSettings();
+      if (submenu.id === 'mcp-hub-control') return renderMcpHubControl();
+
+
+      const genericBody = `<div class="placeholder-card"><h4>${escapeHtml(submenu.name)} Utility Parameters</h4><p>Configure options and operational directives associated with the ${escapeHtml(submenu.name)} runtime framework.</p></div><button class="win-btn">Execute Task</button>`;
+      updateMainContent(parentTitle, submenu.name, genericBody);
+    }
+
+    function updateMainContent(category, page, htmlBody) {
+      breadcrumbTrail.textContent = page ? `${category} / ${page}` : category;
+      contentTitle.textContent = page ? page : category;
+      contentBody.innerHTML = htmlBody;
+    }
+
+    async function renderBrowserWebView() {
+      breadcrumbTrail.textContent = 'Browser / Split WebView';
+      contentTitle.textContent = 'Split WebView';
+      let state;
+      try {
+        state = await callBackend('get_browser_state');
+      } catch (error) {
+        state = { defaultUrl: 'https://example.com', note: error.message };
+      }
+      const url = state.defaultUrl || 'https://example.com';
+      contentBody.innerHTML = browserWebViewMarkup(url, state.note || 'Some pages block iframe embedding. Use the devtools window for those sites.');
+    }
+
+    function browserWebViewMarkup(url, note) {
+      return `
+        <div class="browser-split">
+          <div class="placeholder-card runner-stack">
+            <div class="browser-toolbar">
+              <input id="browserUrl" class="win-input" value="${escapeHtml(url)}" placeholder="https://example.com">
+              <button class="win-btn" onclick="loadEmbeddedBrowser()">Load</button>
+            </div>
+            <iframe id="browserFrame" class="browser-frame" src="${escapeHtml(url)}" referrerpolicy="no-referrer"></iframe>
+          </div>
+          <div class="placeholder-card browser-controls">
+            <h4>DevTools Window</h4>
+            <p>Open the same URL in a separate pywebview browser window.</p>
+            <label><span class="field-label">Window title</span><input id="browserTitle" class="win-input" value="Browser WebView"></label>
+            <div class="form-row">
+              <button class="win-btn" onclick="openBrowserDevtoolsWindow()">Open WebView + DevTools</button>
+              <span id="browserStatus" class="status-pill">Ready.</span>
+            </div>
+            <div class="terminal-note">${escapeHtml(note)}</div>
+          </div>
+        </div>`;
+    }
+
+    function normalizeBrowserUrl(rawUrl) {
+      const value = String(rawUrl || '').trim() || 'https://example.com';
+      return /^[a-zA-Z][a-zA-Z0-9+.-]*:\/\//.test(value) ? value : `https://${value}`;
+    }
+
+    function loadEmbeddedBrowser() {
+      const input = document.getElementById('browserUrl');
+      const frame = document.getElementById('browserFrame');
+      const url = normalizeBrowserUrl(input.value);
+      input.value = url;
+      frame.src = url;
+    }
+
+    async function openBrowserDevtoolsWindow() {
+      const status = document.getElementById('browserStatus');
+      const urlInput = document.getElementById('browserUrl');
+      const titleInput = document.getElementById('browserTitle');
+      status.textContent = 'Opening...';
+      try {
+        const url = normalizeBrowserUrl(urlInput.value);
+        urlInput.value = url;
+        const response = await callBackend('open_browser_window', {
+          url,
+          title: titleInput.value || 'Browser WebView',
+          width: 1200,
+          height: 820
+        });
+        if (!response.ok) throw new Error(response.error || 'Could not open browser window');
+        status.textContent = 'Opened.';
+      } catch (error) {
+        status.textContent = `Open error: ${error.message}`;
+      }
+    }
+
+    async function renderTerminalLauncher() {
+      breadcrumbTrail.textContent = 'Terminals / Alacritty Launcher';
+      contentTitle.textContent = 'Alacritty Launcher';
+      contentBody.innerHTML = '<div class="placeholder-card"><p>Loading terminal launcher...</p></div>';
+      let state;
+      try {
+        state = await callBackend('get_terminal_state');
+      } catch (error) {
+        contentBody.innerHTML = `<div class="placeholder-card"><h4>Backend unavailable</h4><p>${escapeHtml(error.message)}</p></div>`;
+        return;
+      }
+      const presets = state.presets || [];
+      const defaultCwd = state.defaultWorkingDirectory || '';
+      const alacrittyStatus = state.alacritty?.exists ? 'found' : 'missing';
+      contentBody.innerHTML = `
+        <div class="runner-stack">
+          <div class="placeholder-card runner-stack">
+            <h4>ngrok via Alacritty</h4>
+            <p>Launch ngrok in a dedicated Alacritty window and edit the arguments before starting.</p>
+            <div class="path-text">Alacritty: ${escapeHtml(state.alacritty?.path || '')} · ${alacrittyStatus}</div>
+          </div>
+          <div class="terminal-grid">${presets.map(terminalPresetCard).join('')}</div>
+        </div>`;
+    }
+
+    function terminalPresetCard(preset) {
+      const encoded = escapeJs(JSON.stringify(preset));
+      return `<div class="terminal-card"><h4>${escapeHtml(preset.name)}</h4><div class="terminal-meta">Runs in Alacritty · Shell: ${escapeHtml(preset.shell)}</div><label><span class="field-label">Command</span><input id="terminalCommand-${escapeHtml(preset.id)}" class="win-input" value="${escapeHtml(preset.command || 'ngrok')}"></label><label><span class="field-label">Arguments</span><textarea id="terminalArgs-${escapeHtml(preset.id)}" class="win-input env-textarea" spellcheck="false">${escapeHtml(preset.args || '')}</textarea></label><div id="terminalStatus" class="status-pill">Ready.</div><button class="win-btn" onclick="launchPresetTerminal('${encoded}')">Launch in Alacritty</button></div>`;
+    }
+
+    async function launchPresetTerminal(serializedPreset) {
+      const preset = JSON.parse(serializedPreset);
+      const commandInput = document.getElementById(`terminalCommand-${preset.id}`);
+      const argsInput = document.getElementById(`terminalArgs-${preset.id}`);
+      await launchTerminal({
+        title: preset.name,
+        shell: preset.shell,
+        command: commandInput ? commandInput.value : (preset.command || 'ngrok'),
+        argsText: argsInput ? argsInput.value : (preset.args || ''),
+        cwd: backendState?.paths?.projectRoot || ''
+      });
+    }
+
+    async function launchTerminal(payload) {
+      const status = document.getElementById('terminalStatus');
+      if (status) status.textContent = 'Launching...';
+      try {
+        const result = await callBackend('launch_terminal', payload);
+        if (!result.ok) throw new Error(result.error || 'Launch failed');
+        if (status) status.textContent = `Launched PID ${result.pid}`;
+      } catch (error) {
+        if (status) status.textContent = `Launch error: ${error.message}`;
+        else alert(`Launch error: ${error.message}`);
+      }
+    }
+
+
+
+    let warehouseState = null;
+
+    async function getWarehouseState(force = false) {
+      if (warehouseState && !force) return warehouseState;
+      warehouseState = await callBackend('get_warehouse_state');
+      return warehouseState;
+    }
+
+    async function renderWarehouseGitHub() {
+      breadcrumbTrail.textContent = 'Warehouse / GitHub';
+      contentTitle.textContent = 'GitHub';
+      contentBody.innerHTML = '<div class="placeholder-card"><p>Loading GitHub tools...</p></div>';
+      let state;
+      try { state = await getWarehouseState(true); } catch (error) { return renderWarehouseError(error); }
+      const projects = state.projects || [];
+      const firstProject = projects[0] || {};
+      contentBody.innerHTML = `
+        <div class="warehouse-grid">
+          <div class="placeholder-card runner-stack">
+            <h4>Local Git project</h4>
+            <p>Connect selected project folders to GitHub, create remotes, fetch, and push. Uses installed/authenticated gh CLI plus git.</p>
+            <label><span class="field-label">Project</span><select id="warehouseGitProjectSelect" class="win-input" onchange="syncWarehouseGitProjectFromSelect()">${warehouseGitProjectOptions(projects)}</select></label>
+            <label><span class="field-label">Project path</span><input id="warehouseGitProjectPath" class="win-input" value="${escapeHtml(firstProject.path || state.defaultProjectDir)}"></label>
+            <label><span class="field-label">Remote / repo</span><input id="warehouseRemoteInput" class="win-input" placeholder="Areo-RGB/repo-name, repo-name, or https://github.com/owner/repo.git"></label>
+            <div class="form-row">
+              <label style="flex: 1 1 260px;"><span class="field-label">New remote repo name</span><input id="warehouseNewRepoName" class="win-input" value="${escapeHtml(firstProject.name || '')}" placeholder="repo-name or owner/repo-name"></label>
+              <label style="width: 150px;"><span class="field-label">Visibility</span><select id="warehouseNewRepoVisibility" class="win-input"><option value="private">Private</option><option value="public">Public</option><option value="internal">Internal</option></select></label>
+            </div>
+            <div class="warehouse-actions">
+              <button class="win-btn btn-secondary" onclick="runWarehouseGitAction('git_status')">Status</button>
+              <button class="win-btn" onclick="runWarehouseGitAction('git_connect_remote')">Connect Remote</button>
+              <button class="win-btn" onclick="runWarehouseGitAction('git_create_remote_repo')">Create Remote Repo</button>
+              <button class="win-btn btn-secondary" onclick="runWarehouseGitAction('git_fetch')">Fetch</button>
+              <button class="win-btn btn-secondary" onclick="runWarehouseGitAction('git_push')">Push</button>
+              <span id="warehouseGitStatus" class="status-pill">Ready.</span>
+            </div>
+            <div class="terminal-note">Repo folders are listed by last folder change. Remote input accepts owner/repo, a bare repo name, or a full git URL.</div>
+          </div>
+          <div class="placeholder-card runner-stack">
+            <h4>Output</h4>
+            <pre id="warehouseOutput" class="runner-output warehouse-output">No output yet.</pre>
+          </div>
+        </div>
+        <div class="placeholder-card runner-stack" style="margin-top: 24px;">
+          <h4>GitHub repositories</h4>
+          <p>Lists GitHub repositories sorted by latest activity when gh exposes pushedAt.</p>
+          <div class="path-text">Scripts: ${escapeHtml(state.scriptsDir)}</div>
+          <div class="warehouse-actions">
+            <button class="win-btn" onclick="loadWarehouseRepos()">Refresh Repos</button>
+            <span id="warehouseGithubStatus" class="status-pill">Ready.</span>
+          </div>
+          <table class="win-table"><thead><tr><th>Repository</th><th>Visibility</th><th>Last change</th><th>Action</th></tr></thead><tbody id="warehouseRepoRows"><tr><td colspan="4">Click Refresh Repos.</td></tr></tbody></table>
+        </div>`;
+      syncWarehouseGitProjectFromSelect();
+    }
+
+    function warehouseGitProjectOptions(projects) {
+      return (projects || []).map(project => `<option value="${escapeHtml(project.path)}" data-name="${escapeHtml(project.name)}">${escapeHtml(project.name)} · ${escapeHtml(project.lastChanged || 'unknown')}</option>`).join('') || '<option value="">No projects found</option>';
+    }
+
+    function syncWarehouseGitProjectFromSelect() {
+      const select = document.getElementById('warehouseGitProjectSelect');
+      const pathInput = document.getElementById('warehouseGitProjectPath');
+      const repoInput = document.getElementById('warehouseNewRepoName');
+      if (!select || !pathInput) return;
+      const selected = select.options[select.selectedIndex];
+      if (selected && selected.value) pathInput.value = selected.value;
+      if (repoInput && selected) repoInput.value = selected.dataset.name || '';
+    }
+
+    async function runWarehouseGitAction(action) {
+      const status = document.getElementById('warehouseGitStatus');
+      const out = document.getElementById('warehouseOutput');
+      const projectDir = document.getElementById('warehouseGitProjectPath')?.value || '';
+      const remote = document.getElementById('warehouseRemoteInput')?.value || '';
+      const repoName = document.getElementById('warehouseNewRepoName')?.value || '';
+      const visibility = document.getElementById('warehouseNewRepoVisibility')?.value || 'private';
+      if (status) status.textContent = 'Running...';
+      try {
+        const result = await callBackend('run_warehouse_action', { action, projectDir, remote, repoName, visibility });
+        if (out) out.textContent = warehouseResultText(result);
+        if (!result.ok) throw new Error(result.error || result.stderr || 'GitHub action failed');
+        if (status) status.textContent = 'Done.';
+      } catch (error) {
+        if (status) status.textContent = `Error: ${error.message}`;
+      }
+    }
+
+    async function loadWarehouseRepos() {
+      const status = document.getElementById('warehouseGithubStatus');
+      const out = document.getElementById('warehouseOutput');
+      const rows = document.getElementById('warehouseRepoRows');
+      status.textContent = 'Loading...';
+      try {
+        const result = await callBackend('run_warehouse_action', { action: 'repo_visibility_list' });
+        out.textContent = warehouseResultText(result);
+        if (!result.ok) throw new Error(result.error || result.stderr || 'Repository list failed');
+        rows.innerHTML = (result.repos || []).map(repo => `<tr><td>${escapeHtml(repo.name)}</td><td>${escapeHtml(repo.visibility)}</td><td class="warehouse-last-change">${escapeHtml(repo.lastChanged || 'unknown')}</td><td><button class="win-btn btn-sm btn-secondary" onclick="toggleWarehouseRepo('${escapeJs(repo.name)}')">Toggle</button></td></tr>`).join('') || '<tr><td colspan="4">No repositories returned.</td></tr>';
+        status.textContent = `${(result.repos || []).length} repos loaded.`;
+      } catch (error) {
+        status.textContent = `Error: ${error.message}`;
+      }
+    }
+
+    async function toggleWarehouseRepo(repo) {
+      const status = document.getElementById('warehouseGithubStatus');
+      const out = document.getElementById('warehouseOutput');
+      status.textContent = `Toggling ${repo}...`;
+      try {
+        const result = await callBackend('run_warehouse_action', { action: 'repo_visibility_toggle', repo });
+        out.textContent = warehouseResultText(result);
+        if (!result.ok) throw new Error(result.error || result.stderr || 'Toggle failed');
+        status.textContent = `Toggled ${repo}.`;
+        await loadWarehouseRepos();
+      } catch (error) {
+        status.textContent = `Error: ${error.message}`;
+      }
+    }
+
+    async function renderWarehouseZip() {
+      breadcrumbTrail.textContent = 'Warehouse / Zip Projects';
+      contentTitle.textContent = 'Zip Projects';
+      contentBody.innerHTML = '<div class="placeholder-card"><p>Loading project list...</p></div>';
+      let state;
+      try { state = await getWarehouseState(true); } catch (error) { return renderWarehouseError(error); }
+      contentBody.innerHTML = `
+        <div class="warehouse-grid">
+          <div class="placeholder-card runner-stack">
+            <h4>Project quick selection</h4>
+            <p>Select level-1 project folders sorted by last folder change, then create ZIP archives with 7-Zip while applying .gitignore-style exclude filters.</p>
+            <div class="path-text">Base: ${escapeHtml(state.defaultProjectDir)}</div>
+            <div class="path-text">Zip output: ${escapeHtml(state.zipDir)}</div>
+            <div class="warehouse-actions">
+              <button class="win-btn" onclick="zipSelectedWarehouseProjects()">Pack Selected</button>
+              <button class="win-btn btn-secondary" onclick="runWarehouseScriptAction('update_zips')">Smart Update</button>
+              <button class="win-btn btn-secondary" onclick="runWarehouseScriptAction('create_all_zips')">Recreate All</button>
+              <span id="warehouseZipStatus" class="status-pill">Ready.</span>
+            </div>
+            <div class="warehouse-project-list"><div class="warehouse-project-row warehouse-project-header"><span></span><span>Name</span><span>Last change</span><span>Path</span></div>${warehouseProjectRows(state.projects || [])}</div>
+          </div>
+          <div class="placeholder-card runner-stack">
+            <h4>Output</h4>
+            <pre id="warehouseOutput" class="runner-output warehouse-output">No output yet.</pre>
+          </div>
+        </div>`;
+    }
+
+    function warehouseProjectRows(projects) {
+      return projects.map((project) => `<label class="warehouse-project-row"><input type="checkbox" class="warehouse-project-check" data-name="${escapeHtml(project.name)}" data-path="${escapeHtml(project.path)}"><strong>${escapeHtml(project.name)}</strong><span class="warehouse-last-change">${escapeHtml(project.lastChanged || 'unknown')}</span><span class="path-text">${escapeHtml(project.path)}</span></label>`).join('') || '<div class="warehouse-project-row">No projects found.</div>';
+    }
+
+    function selectedWarehouseProjects() {
+      return Array.from(document.querySelectorAll('.warehouse-project-check:checked')).map(input => ({ name: input.dataset.name, path: input.dataset.path }));
+    }
+
+    async function zipSelectedWarehouseProjects() {
+      const status = document.getElementById('warehouseZipStatus');
+      const out = document.getElementById('warehouseOutput');
+      const projects = selectedWarehouseProjects();
+      if (!projects.length) { status.textContent = 'Select at least one project.'; return; }
+      status.textContent = `Packing ${projects.length} project(s)...`;
+      try {
+        const result = await callBackend('run_warehouse_action', { action: 'zip_selected', projects });
+        out.textContent = warehouseResultText(result);
+        if (!result.ok) throw new Error(result.error || result.stderr || 'Zip failed');
+        status.textContent = 'Packed.';
+      } catch (error) {
+        status.textContent = `Error: ${error.message}`;
+      }
+    }
+
+    async function runWarehouseScriptAction(action) {
+      const status = document.getElementById('warehouseZipStatus') || document.getElementById('warehouseRepomixStatus');
+      const out = document.getElementById('warehouseOutput');
+      if (status) status.textContent = 'Running...';
+      try {
+        const result = await callBackend('run_warehouse_action', { action });
+        out.textContent = warehouseResultText(result);
+        if (!result.ok) throw new Error(result.error || result.stderr || 'Action failed');
+        if (status) status.textContent = 'Done.';
+      } catch (error) {
+        if (status) status.textContent = `Error: ${error.message}`;
+      }
+    }
+
+    async function renderWarehouseRepomix() {
+      breadcrumbTrail.textContent = 'Warehouse / Repomix';
+      contentTitle.textContent = 'Repomix';
+      let state;
+      try { state = await getWarehouseState(); } catch (error) { return renderWarehouseError(error); }
+      contentBody.innerHTML = `
+        <div class="warehouse-grid">
+          <div class="placeholder-card runner-stack">
+            <h4>Repository packer</h4>
+            <p>Run Repomix against one selected folder, or each level-1 subfolder separately.</p>
+            <label><span class="field-label">Target folder</span><input id="warehouseRepomixTarget" class="win-input" value="${escapeHtml(state.defaultProjectDir)}"></label>
+            <label class="form-row"><input id="warehouseRepomixSubfolders" type="checkbox"> <span>Subfolder mode: one Repomix XML per level-1 child folder</span></label>
+            <div class="path-text">Config: ${escapeHtml(state.configPath)}</div>
+            <div class="path-text">Output: ${escapeHtml(state.outputDir)}</div>
+            <div class="warehouse-actions"><button class="win-btn" onclick="runWarehouseRepomix()">Run Repomix</button><span id="warehouseRepomixStatus" class="status-pill">Ready.</span></div>
+          </div>
+          <div class="placeholder-card runner-stack"><h4>Output</h4><pre id="warehouseOutput" class="runner-output warehouse-output">No output yet.</pre></div>
+        </div>`;
+    }
+
+    async function runWarehouseRepomix() {
+      const status = document.getElementById('warehouseRepomixStatus');
+      const out = document.getElementById('warehouseOutput');
+      status.textContent = 'Running Repomix...';
+      try {
+        const result = await callBackend('run_warehouse_action', { action: 'repomix', targetDir: document.getElementById('warehouseRepomixTarget').value, subfolders: document.getElementById('warehouseRepomixSubfolders').checked });
+        out.textContent = warehouseResultText(result);
+        if (!result.ok) throw new Error(result.error || result.stderr || 'Repomix failed');
+        status.textContent = 'Done.';
+      } catch (error) {
+        status.textContent = `Error: ${error.message}`;
+      }
+    }
+
+    async function renderWarehouseSettings() {
+      breadcrumbTrail.textContent = 'Warehouse / Paths & Settings';
+      contentTitle.textContent = 'Paths & Settings';
+      let state;
+      try { state = await getWarehouseState(true); } catch (error) { return renderWarehouseError(error); }
+      const rows = Object.entries(state.scriptAvailability || {}).map(([key, value]) => `<tr><td>${escapeHtml(key)}</td><td>${value ? 'Available' : 'Missing'}</td></tr>`).join('');
+      contentBody.innerHTML = `<div class="placeholder-card"><h4>GUI.ahk defaults</h4><table class="win-table"><tbody><tr><td>Default project dir</td><td class="path-text">${escapeHtml(state.defaultProjectDir)}</td></tr><tr><td>Management dir</td><td class="path-text">${escapeHtml(state.managementDir)}</td></tr><tr><td>Scripts dir</td><td class="path-text">${escapeHtml(state.scriptsDir)}</td></tr><tr><td>Repomix config</td><td class="path-text">${escapeHtml(state.configPath)}</td></tr><tr><td>Repo outputs</td><td class="path-text">${escapeHtml(state.outputDir)}</td></tr><tr><td>Zip dir</td><td class="path-text">${escapeHtml(state.zipDir)}</td></tr></tbody></table></div><div class="placeholder-card"><h4>Tool availability</h4><table class="win-table"><thead><tr><th>Feature</th><th>Status</th></tr></thead><tbody>${rows}</tbody></table></div>`;
+    }
+
+    function renderWarehouseError(error) {
+      contentBody.innerHTML = `<div class="placeholder-card"><h4>Warehouse backend unavailable</h4><p>${escapeHtml(error.message)}</p></div>`;
+    }
+
+    function warehouseResultText(result) {
+      if (!result) return 'No result.';
+      return [
+        result.command ? `Command: ${result.command}` : '',
+        result.exitCode !== undefined ? `Exit: ${result.exitCode}` : '',
+        result.stdout || '',
+        result.stderr ? `# stderr\n${result.stderr}` : '',
+        result.error ? `# error\n${result.error}` : ''
+      ].filter(Boolean).join('\n\n') || JSON.stringify(result, null, 2);
+    }
+
+
+    async function renderMcpHubControl() {
+      breadcrumbTrail.textContent = 'MCP Hub / Hub Control';
+      contentTitle.textContent = 'MCP Hub';
+      if (mcpHubPollTimer) { clearInterval(mcpHubPollTimer); mcpHubPollTimer = null; }
+      contentBody.innerHTML = `<div class="placeholder-card"><h4>Loading MCP Hub state...</h4><p>Reading process status, config path, connected servers, and logs.</p></div>`;
+      try {
+        const state = await callBackend('get_mcp_hub_state');
+        contentBody.innerHTML = mcpHubMarkup(state);
+        mcpHubApplyState(state);
+        mcpHubPollTimer = setInterval(refreshMcpHubState, 2500);
+      } catch (error) {
+        contentBody.innerHTML = `<div class="placeholder-card"><h4>MCP Hub backend unavailable</h4><p>${escapeHtml(error.message)}</p></div>`;
+      }
+    }
+
+    function mcpHubMarkup(state) {
+      return `
+        <div id="mcpHubPanel" class="runner-stack">
+          <div class="mcp-grid">
+            <div class="placeholder-card runner-stack">
+              <div>
+                <h4>Hub Process</h4>
+                <p>Start the bundled MCP Hub, stop it cleanly, reload <span class="path-text">mcp.json</span>, and use one endpoint for all configured MCP servers.</p>
+              </div>
+              <div class="mcp-status-line">
+                <span id="mcpHubStatus" class="status-pill">${escapeHtml(state.status || 'unknown')}</span>
+                <span id="mcpHubReady" class="status-pill">${escapeHtml(state.readyState || 'offline')}</span>
+                <span id="mcpHubPid" class="status-pill">PID: ${escapeHtml(state.pid || '—')}</span>
+              </div>
+              <label><span class="field-label">Port</span><input id="mcpHubPort" class="win-input" type="number" min="1024" max="65535" value="${escapeHtml(state.port || 37373)}"></label>
+              <div class="mcp-actions">
+                <button id="mcpHubStartButton" class="win-btn" onclick="runMcpHubAction('start')">Start Hub</button>
+                <button id="mcpHubStopButton" class="win-btn btn-secondary" onclick="runMcpHubAction('stop')">Stop Hub</button>
+                <button id="mcpHubRestartButton" class="win-btn btn-secondary" onclick="runMcpHubAction('restart')">Restart</button>
+                <button class="win-btn btn-secondary" onclick="runMcpHubAction('reload')">Reload Config</button>
+                <button id="mcpHubNgrokButton" class="win-btn btn-secondary" onclick="toggleMcpNgrok()">Start ngrok</button>
+                <button class="win-btn btn-secondary" onclick="openMcpJson()">Open mcp.json</button>
+                <button class="win-btn btn-secondary" onclick="refreshMcpHubState()">Refresh</button>
+              </div>
+              <div id="mcpHubActionStatus" class="status-pill">Ready.</div>
+              <div class="mcp-add-form">
+                <div class="mcp-log-header">
+                  <h4>Add MCP Server</h4>
+                  <button class="btn-secondary btn-sm" onclick="addMcpServerFromForm()">Add MCP Server</button>
+                </div>
+                <div class="mcp-add-grid">
+                  <label><span class="field-label">Name</span><input id="mcpAddName" class="win-input" placeholder="optional, e.g. context7"></label>
+                  <label><span class="field-label">Type</span><select id="mcpAddType" class="win-input" onchange="switchMcpAddType()"><option value="remote">Remote URL</option><option value="local">Local command</option></select></label>
+                </div>
+                <label id="mcpAddRemoteWrap"><span class="field-label">Remote URL</span><input id="mcpAddUrl" class="win-input" placeholder="https://example.com/mcp"></label>
+                <label id="mcpAddLocalWrap" style="display:none"><span class="field-label">Local command</span><textarea id="mcpAddCommand" class="win-input env-textarea" spellcheck="false" placeholder="npx -y package-name or serena start-mcp-server"></textarea></label>
+                <div id="mcpAddStatus" class="status-pill">Adds to mcp.json and validates JSON formatting before saving.</div>
+              </div>
+              <div class="mcp-meta">
+                <div>Endpoint: <span id="mcpHubEndpoint" class="path-text">${escapeHtml(state.mcpEndpoint || '')}</span></div>
+                <div>ngrok: <span id="mcpHubNgrok" class="path-text">${state.ngrokRunning ? `running · PID ${escapeHtml(state.ngrokPid || '—')}` : 'stopped'}</span></div>
+                <div>Config: <span id="mcpHubConfigPath" class="path-text">${escapeHtml(state.configPath || '')}</span></div>
+                <div>Runtime package: <span id="mcpHubPackageDir" class="path-text">${escapeHtml(state.packageDir || '')}</span></div>
+                <div>Node: <span id="mcpHubNode" class="path-text">${escapeHtml(state.setup?.node || 'node')}</span></div>
+                <div>NPM: <span id="mcpHubNpm" class="path-text">${escapeHtml(state.setup?.npm || 'npm')}</span></div>
+              </div>
+            </div>
+            <div class="placeholder-card runner-stack">
+              <div>
+                <h4>Connected Servers</h4>
+                <p>Servers are read from the live MCP Hub REST API. Edit <span class="path-text">mcp.json</span>, then Reload Config.</p>
+              </div>
+              <div id="mcpHubServerSummary" class="status-pill">No servers loaded.</div>
+              <table class="win-table">
+                <thead><tr><th>Server</th><th>Status</th><th>Transport</th><th>Capabilities</th><th>Uptime</th><th>Action</th></tr></thead>
+                <tbody id="mcpHubServers"><tr><td colspan="6">Loading...</td></tr></tbody>
+              </table>
+            </div>
+          </div>
+          <div class="placeholder-card runner-stack">
+            <div class="mcp-log-header">
+              <h4>Server Log</h4>
+              <button class="btn-secondary btn-sm" onclick="copyMcpHubErrors()">Copy errors</button>
+            </div>
+            <pre id="mcpHubLog" class="runner-output mcp-log">No logs yet.</pre>
+          </div>
+        </div>`;
+    }
+
+    async function refreshMcpHubState() {
+      if (!document.getElementById('mcpHubPanel')) return;
+      try {
+        const state = await callBackend('get_mcp_hub_state');
+        mcpHubApplyState(state);
+      } catch (error) {
+        const status = document.getElementById('mcpHubActionStatus');
+        if (status) status.textContent = `Refresh failed: ${error.message}`;
+      }
+    }
+
+    function mcpHubApplyState(state) {
+      const setText = (id, value) => { const el = document.getElementById(id); if (el) el.textContent = value; };
+      setText('mcpHubStatus', `Process: ${state.status || 'unknown'}`);
+      setText('mcpHubReady', `Hub: ${state.readyState || 'offline'}`);
+      setText('mcpHubPid', `PID: ${state.pid || '—'}`);
+      setText('mcpHubEndpoint', state.mcpEndpoint || '');
+      setText('mcpHubNgrok', state.ngrokRunning ? `running · PID ${state.ngrokPid || '—'}` : 'stopped');
+      setText('mcpHubConfigPath', state.configPath || '');
+      setText('mcpHubPackageDir', state.packageDir || '');
+      setText('mcpHubNode', state.setup?.node || 'node');
+      setText('mcpHubNpm', state.setup?.npm || 'npm');
+      const port = document.getElementById('mcpHubPort');
+      if (port && document.activeElement !== port) port.value = state.port || 37373;
+      const healthErrors = [state.healthError, state.serversError, state.lastError].filter(Boolean).join(' | ');
+      const actionStatus = document.getElementById('mcpHubActionStatus');
+      if (actionStatus) actionStatus.textContent = state.message || healthErrors || (state.running ? 'Running.' : 'Stopped.');
+      const statusLower = String(state.status || '').toLowerCase();
+      const hubStarting = ['starting', 'installing'].includes(statusLower);
+      const hubRunning = Boolean(state.running) || statusLower === 'running';
+      const startButton = document.getElementById('mcpHubStartButton');
+      const stopButton = document.getElementById('mcpHubStopButton');
+      const restartButton = document.getElementById('mcpHubRestartButton');
+      if (startButton) {
+        startButton.disabled = hubRunning || hubStarting;
+        startButton.textContent = hubStarting ? 'Starting...' : 'Start Hub';
+      }
+      if (stopButton) stopButton.disabled = !hubRunning && !hubStarting;
+      if (restartButton) restartButton.disabled = hubStarting;
+      const ngrokButton = document.getElementById('mcpHubNgrokButton');
+      if (ngrokButton) {
+        ngrokButton.dataset.running = state.ngrokRunning ? '1' : '0';
+        ngrokButton.textContent = state.ngrokRunning ? 'Stop ngrok' : 'Start ngrok';
+      }
+      const servers = Array.isArray(state.servers) ? state.servers : [];
+      setText('mcpHubServerSummary', `${servers.length} server${servers.length === 1 ? '' : 's'} configured · ${servers.filter(s => s.status === 'connected').length} connected`);
+      const rows = document.getElementById('mcpHubServers');
+      if (rows) rows.innerHTML = mcpHubServerRows(servers, state.running, state.serversError);
+      const log = document.getElementById('mcpHubLog');
+      if (log) {
+        const wasNearBottom = (log.scrollHeight - log.scrollTop - log.clientHeight) < 80;
+        const logText = (state.logs || []).join('\n') || 'No logs yet. First start may run npm install here.';
+        if (log.textContent !== logText) log.textContent = logText;
+        if (wasNearBottom) log.scrollTop = log.scrollHeight;
+      }
+    }
+
+    function mcpHubServerRows(servers, hubRunning, errorText) {
+      if (errorText && hubRunning) return `<tr><td colspan="6">${escapeHtml(errorText)}</td></tr>`;
+      if (!hubRunning) return `<tr><td colspan="6">Hub is stopped. Start MCP Hub to list connected servers.</td></tr>`;
+      if (!servers.length) return `<tr><td colspan="6">No servers configured in mcp.json yet.</td></tr>`;
+      return servers.map(server => {
+        const caps = server.capabilities || {};
+        const tools = Array.isArray(caps.tools) ? caps.tools.length : 0;
+        const resources = Array.isArray(caps.resources) ? caps.resources.length : 0;
+        const prompts = Array.isArray(caps.prompts) ? caps.prompts.length : 0;
+        const templates = Array.isArray(caps.resourceTemplates) ? caps.resourceTemplates.length : 0;
+        const name = server.name || server.displayName || '';
+        const safeName = escapeJs(name);
+        const uptime = server.uptime ? `${Math.round(Number(server.uptime) / 1000)}s` : '—';
+        return `<tr>
+          <td><div class="mcp-server-name">${escapeHtml(name || 'Unnamed')}</div><div class="history-meta">${escapeHtml(server.displayName || server.description || '')}</div></td>
+          <td>${escapeHtml(server.status || 'unknown')}${server.error ? `<div class="history-meta">${escapeHtml(server.error)}</div>` : ''}</td>
+          <td>${escapeHtml(server.transportType || '—')}</td>
+          <td class="mcp-count">T ${tools} · R ${resources} · RT ${templates} · P ${prompts}</td>
+          <td>${escapeHtml(uptime)}</td>
+          <td><div class="action-btn-group"><button class="btn-secondary btn-sm" onclick="mcpHubServerAction('start', '${safeName}')">Start</button><button class="btn-secondary btn-sm" onclick="mcpHubServerAction('stop', '${safeName}')">Stop</button></div></td>
+        </tr>`;
+      }).join('');
+    }
+
+    async function runMcpHubAction(action) {
+      const status = document.getElementById('mcpHubActionStatus');
+      const port = Number(document.getElementById('mcpHubPort')?.value || 37373);
+      const map = { start: 'start_mcp_hub', stop: 'stop_mcp_hub', restart: 'restart_mcp_hub', reload: 'reload_mcp_hub_config' };
+      if (!map[action]) return;
+      if (status) status.textContent = `${action} requested...`;
+      try {
+        const result = action === 'stop' || action === 'reload' ? await callBackend(map[action]) : await callBackend(map[action], { port });
+        mcpHubApplyState(result);
+      } catch (error) {
+        if (status) status.textContent = `${action} failed: ${error.message}`;
+      }
+    }
+
+    async function toggleMcpNgrok() {
+      const status = document.getElementById('mcpHubActionStatus');
+      const button = document.getElementById('mcpHubNgrokButton');
+      const running = button?.dataset.running === '1';
+      const port = Number(document.getElementById('mcpHubPort')?.value || 37373);
+      if (status) status.textContent = running ? 'Stopping ngrok...' : `Starting ngrok for port ${port}...`;
+      try {
+        const result = running ? await callBackend('stop_mcp_ngrok') : await callBackend('start_mcp_ngrok', { port });
+        mcpHubApplyState(result);
+      } catch (error) {
+        if (status) status.textContent = `ngrok failed: ${error.message}`;
+      }
+    }
+
+    async function copyMcpHubErrors() {
+      const status = document.getElementById('mcpHubActionStatus');
+      const log = document.getElementById('mcpHubLog');
+      const lines = (log?.textContent || '').split(/\r?\n/).filter(line => /error/i.test(line));
+      const text = lines.join('\n') || 'No ERROR/error messages found.';
+      try {
+        await navigator.clipboard.writeText(text);
+        if (status) status.textContent = `Copied ${lines.length} ERROR/error line${lines.length === 1 ? '' : 's'} to clipboard.`;
+      } catch (error) {
+        if (status) status.textContent = `Copy failed: ${error.message}`;
+      }
+    }
+
+    function switchMcpAddType() {
+      const type = document.getElementById('mcpAddType')?.value || 'remote';
+      const remote = document.getElementById('mcpAddRemoteWrap');
+      const local = document.getElementById('mcpAddLocalWrap');
+      if (remote) remote.style.display = type === 'remote' ? '' : 'none';
+      if (local) local.style.display = type === 'local' ? '' : 'none';
+    }
+
+    async function addMcpServerFromForm() {
+      const status = document.getElementById('mcpAddStatus');
+      const serverType = document.getElementById('mcpAddType')?.value || 'remote';
+      const payload = {
+        serverType,
+        name: document.getElementById('mcpAddName')?.value || '',
+        url: document.getElementById('mcpAddUrl')?.value || '',
+        commandLine: document.getElementById('mcpAddCommand')?.value || ''
+      };
+      if (status) status.textContent = 'Adding server and validating mcp.json...';
+      try {
+        const result = await callBackend('add_mcp_server', payload);
+        if (!result.ok) throw new Error(result.error || 'Could not add MCP server');
+        if (status) status.textContent = result.message || `Added ${result.serverName}. JSON format check passed.`;
+        await refreshMcpHubState();
+      } catch (error) {
+        if (status) status.textContent = `Add failed: ${error.message}`;
+      }
+    }
+
+    async function openMcpJson() {
+      const status = document.getElementById('mcpHubActionStatus');
+      if (status) status.textContent = 'Opening mcp.json...';
+      try {
+        const result = await callBackend('open_mcp_config');
+        if (!result.ok) throw new Error(result.error || 'Could not open mcp.json');
+        if (status) status.textContent = `Opened ${result.path}`;
+      } catch (error) {
+        if (status) status.textContent = `Open failed: ${error.message}`;
+      }
+    }
+
+    async function mcpHubServerAction(action, name) {
+      const status = document.getElementById('mcpHubActionStatus');
+      if (status) status.textContent = `${action} ${name}...`;
+      try {
+        const method = action === 'start' ? 'start_mcp_server' : 'stop_mcp_server';
+        const result = await callBackend(method, { name, disable: false });
+        if (!result.ok) throw new Error(result.error || `${action} failed`);
+        mcpHubApplyState(result);
+      } catch (error) {
+        if (status) status.textContent = `${action} failed: ${error.message}`;
+      }
+    }
+
+
+    function renderScriptRunner() {
+      breadcrumbTrail.textContent = 'Run Scripts / Clipboard Runner';
+      contentTitle.textContent = 'Clipboard Runner';
+      const timeout = backendState?.config?.defaultTimeoutSeconds || 120;
+      const workspace = backendState?.paths?.scriptWorkspace || '';
+      contentBody.innerHTML = `
+        <div class="runner-layout">
+          <div class="placeholder-card runner-stack">
+            <div>
+              <h4>Script Content</h4>
+              <p>Paste code, read the system clipboard, auto-detect the language, then run it through the Python backend.</p>
+            </div>
+            <textarea id="scriptContent" class="win-input runner-textarea" spellcheck="false" placeholder="Paste Python, JavaScript, PowerShell, Batch, Bash, or HTML here..."></textarea>
+            <div class="form-row">
+              <button class="win-btn" onclick="readClipboardIntoEditor()">Read Clipboard</button>
+              <button id="runClipboardButton" class="win-btn" onclick="runScriptFromClipboard()">Run from Clipboard</button>
+              <button class="win-btn btn-secondary" onclick="detectCurrentScript()">Detect</button>
+            </div>
+            <div id="detectStatus" class="status-pill">Detection: waiting for script content</div>
+            <div id="hintContainer" class="form-row"></div>
+          </div>
+          <div class="runner-stack">
+            <div class="placeholder-card runner-stack">
+              <h4>Run Configuration</h4>
+              <label><span class="field-label">Run as</span><select id="languageSelect" class="win-input">${languageOptions()}</select></label>
+              <label><span class="field-label">Arguments</span><input id="argsInput" class="win-input" placeholder="--name Paul --count 3"></label>
+              <label><span class="field-label">Working directory</span><input id="cwdInput" class="win-input" value="${escapeHtml(workspace)}"></label>
+              <label><span class="field-label">Timeout seconds</span><input id="timeoutInput" class="win-input" type="number" min="1" max="3600" value="${timeout}"></label>
+              <label><span class="field-label">Environment variables</span><textarea id="envInput" class="win-input env-textarea" placeholder="KEY=VALUE\nOUTPUT_DIR=C:\\Temp"></textarea></label>
+              <div class="form-row">
+                <button id="runButton" class="win-btn" onclick="runCurrentScript()">Run Script</button>
+                <button class="win-btn btn-secondary" onclick="clearRunnerOutput()">Clear Output</button>
+              </div>
+            </div>
+            <div class="placeholder-card runner-stack">
+              <h4>Output</h4>
+              <div id="runStatus" class="status-pill">Ready.</div>
+              <pre id="outputArea" class="runner-output">No output yet.</pre>
+            </div>
+          </div>
+        </div>`;
+    }
+
+    function languageOptions() {
+      const labels = backendState?.languages || { python: 'Python', javascript: 'JavaScript / Node.js', powershell: 'PowerShell', batch: 'Batch / CMD', bash: 'Bash / WSL', html: 'HTML file' };
+      return Object.entries(labels).filter(([key]) => key !== 'text').map(([key, label]) => `<option value="${key}" ${key === 'python' ? 'selected' : ''}>${escapeHtml(label)}</option>`).join('');
+    }
+
+    async function readClipboardIntoEditor() {
+      const area = document.getElementById('scriptContent');
+      try {
+        const response = await callBackend('read_clipboard');
+        if (!response.ok) throw new Error(response.error || 'Clipboard read failed');
+        area.value = response.text || '';
+        await detectCurrentScript();
+      } catch (error) {
+        document.getElementById('detectStatus').textContent = `Clipboard error: ${error.message}`;
+      }
+    }
+
+    async function runScriptFromClipboard() {
+      const area = document.getElementById('scriptContent');
+      const detectStatus = document.getElementById('detectStatus');
+      const runStatus = document.getElementById('runStatus');
+      const button = document.getElementById('runClipboardButton');
+      if (button) button.disabled = true;
+      if (runStatus) runStatus.textContent = 'Reading clipboard...';
+      try {
+        const response = await callBackend('read_clipboard');
+        if (!response.ok) throw new Error(response.error || 'Clipboard read failed');
+        area.value = response.text || '';
+        if (!area.value.trim()) {
+          if (runStatus) runStatus.textContent = 'Clipboard is empty.';
+          return;
+        }
+        await detectCurrentScript();
+        await runCurrentScript();
+      } catch (error) {
+        if (detectStatus) detectStatus.textContent = `Clipboard error: ${error.message}`;
+        if (runStatus) runStatus.textContent = 'Run from clipboard failed.';
+      } finally {
+        if (button) button.disabled = false;
+      }
+    }
+
+    async function detectCurrentScript() {
+      const content = document.getElementById('scriptContent').value;
+      const status = document.getElementById('detectStatus');
+      const hints = document.getElementById('hintContainer');
+      try {
+        const result = await callBackend('detect_script', content);
+        if (result.language && result.language !== 'text') document.getElementById('languageSelect').value = result.language;
+        status.textContent = `Detection: ${result.label} · confidence ${Math.round((result.confidence || 0) * 100)}% · ${(result.reasons || []).join(', ') || 'no strong markers'}`;
+        hints.innerHTML = (result.hints || []).map(hint => `<button class="hint-chip" onclick="appendArgument('${escapeJs(hint.example || hint.name)}')">+ ${escapeHtml(hint.example || hint.name)}</button>`).join('');
+      } catch (error) {
+        status.textContent = `Detection error: ${error.message}`;
+      }
+    }
+
+    function appendArgument(example) {
+      const input = document.getElementById('argsInput');
+      input.value = `${input.value || ''} ${example}`.trim();
+    }
+
+    async function runCurrentScript() {
+      const button = document.getElementById('runButton');
+      const clipboardButton = document.getElementById('runClipboardButton');
+      const status = document.getElementById('runStatus');
+      const output = document.getElementById('outputArea');
+      const content = document.getElementById('scriptContent').value;
+      if (!content.trim()) { status.textContent = 'Paste script content first.'; return; }
+      if (button) button.disabled = true;
+      if (clipboardButton) clipboardButton.disabled = true;
+      status.textContent = 'Running...';
+      output.textContent = '';
+      try {
+        const response = await callBackend('run_script', {
+          content,
+          language: document.getElementById('languageSelect').value,
+          argsText: document.getElementById('argsInput').value,
+          workingDirectory: document.getElementById('cwdInput').value,
+          timeoutSeconds: Number(document.getElementById('timeoutInput').value || 120),
+          envText: document.getElementById('envInput').value
+        });
+        const result = response.result;
+        backendState.history = response.history || backendState.history || [];
+        status.textContent = `Exit ${result.exit_code} · ${result.duration_seconds}s${result.timed_out ? ' · timed out' : ''}`;
+        output.textContent = `${result.command?.length ? 'Command: ' + result.command.join(' ') + '\n\n' : ''}${formatResultOutput(result)}`;
+      } catch (error) {
+        status.textContent = 'Run failed.';
+        output.textContent = error.stack || error.message;
+      } finally {
+        if (button) button.disabled = false;
+        if (clipboardButton) clipboardButton.disabled = false;
+      }
+    }
+
+    function formatResultOutput(result) {
+      const chunks = [];
+      if (result.notes && result.notes.length) chunks.push('# Notes\n' + result.notes.map(n => '- ' + n).join('\n'));
+      if (result.stdout) chunks.push('# stdout\n' + result.stdout.trimEnd());
+      if (result.stderr) chunks.push('# stderr\n' + result.stderr.trimEnd());
+      return chunks.length ? chunks.join('\n\n') : 'No output.';
+    }
+
+    function clearRunnerOutput() {
+      document.getElementById('runStatus').textContent = 'Ready.';
+      document.getElementById('outputArea').textContent = 'No output yet.';
+    }
+
+    async function renderHistoryPage() {
+      breadcrumbTrail.textContent = 'Run Scripts / Run History';
+      contentTitle.textContent = 'Run History';
+      try {
+        const response = await callBackend('read_history', 30);
+        backendState = backendState || {};
+        backendState.history = response.history || [];
+      } catch (_) {}
+      const items = backendState?.history || [];
+      contentBody.innerHTML = `<div class="placeholder-card"><h4>Recent Script Runs</h4><p>History is stored as JSONL in <span class="path-text">${escapeHtml(backendState?.paths?.historyFile || 'runtime/history/script_runs.jsonl')}</span>.</p></div><div class="history-list">${items.length ? items.map(historyItem).join('') : '<div class="placeholder-card"><p>No script runs recorded yet.</p></div>'}</div>`;
+    }
+
+    function historyItem(item) {
+      return `<div class="history-item"><strong>${escapeHtml(item.created_at || '')}</strong> · ${escapeHtml(item.language || '')} · exit ${escapeHtml(String(item.exit_code ?? ''))}<div class="history-meta">${escapeHtml(item.script_path || '')}</div></div>`;
+    }
+
+    function renderEnvironmentPage() {
+      breadcrumbTrail.textContent = 'Settings / Runtime Environment';
+      contentTitle.textContent = 'Runtime Environment';
+      const systemRows = Object.entries(backendState?.system || {}).map(([k, v]) => `<tr><td>${escapeHtml(k)}</td><td class="path-text">${escapeHtml(v)}</td></tr>`).join('');
+      const runtimeRows = (backendState?.runtimes || []).map(r => `<tr><td>${escapeHtml(r.name)}</td><td>${escapeHtml(r.command)}</td><td class="path-text">${escapeHtml(r.status)}</td></tr>`).join('');
+      contentBody.innerHTML = `<div class="placeholder-card"><h4>System</h4><table class="win-table"><tbody>${systemRows}</tbody></table></div><div class="placeholder-card"><h4>Detected Runtimes</h4><table class="win-table"><thead><tr><th>Runtime</th><th>Command</th><th>Status</th></tr></thead><tbody>${runtimeRows}</tbody></table></div>`;
+    }
+
+    function renderConfigTable() {
+      breadcrumbTrail.textContent = 'Data Utility / Configuration Table';
+      contentTitle.textContent = 'Configuration Table';
+      let tableRows = '';
+      keyValueData.forEach((item, index) => {
+        if (item.isEditing) {
+          tableRows += `<tr><td><input type="text" class="win-input" id="edit-name-${index}" value="${escapeHtml(item.name)}" placeholder="Name"></td><td><input type="text" class="win-input" id="edit-value-${index}" value="${escapeHtml(item.value)}" placeholder="Value"></td><td style="text-align: right;"><div class="action-btn-group" style="justify-content: flex-end;"><button class="win-btn btn-sm" onclick="saveRow(${index})">Save</button><button class="btn-secondary btn-sm" onclick="cancelEdit(${index})">Cancel</button></div></td></tr>`;
+        } else {
+          tableRows += `<tr><td style="font-weight: 500;">${escapeHtml(item.name)}</td><td style="color: var(--text-secondary); font-family: monospace;">${escapeHtml(item.value)}</td><td style="text-align: right;"><div class="action-btn-group" style="justify-content: flex-end;"><button class="btn-secondary btn-sm" onclick="editRow(${index})">Edit</button><button class="btn-danger btn-sm" onclick="deleteRow(${index})">Remove</button></div></td></tr>`;
+        }
+      });
+      contentBody.innerHTML = `<div class="placeholder-card" style="max-width: 100%;"><h4>Parameters Matrix</h4><p style="margin-bottom: 12px;">Review and manage environment key-value pairs below. Changes update the current dynamic runtime instance.</p><table class="win-table"><thead><tr><th style="width: 45%;">Name</th><th style="width: 40%;">Value</th><th style="width: 15%; text-align: right;">Actions</th></tr></thead><tbody>${tableRows || '<tr><td colspan="3" style="text-align: center; color: var(--text-disabled); padding: 16px;">No dynamic configurations configured.</td></tr>'}</tbody></table><div class="table-actions-container"><button class="win-btn" onclick="addNewRow()">+ Add New Row</button></div></div>`;
+    }
+
+    function editRow(index) { keyValueData[index].isEditing = true; renderConfigTable(); }
+    function cancelEdit(index) { if (!keyValueData[index].name.trim() && !keyValueData[index].value.trim()) keyValueData.splice(index, 1); else keyValueData[index].isEditing = false; renderConfigTable(); }
+    function saveRow(index) { const n = document.getElementById(`edit-name-${index}`); const v = document.getElementById(`edit-value-${index}`); if (!n.value.trim()) { alert('Key name cannot be blank.'); return; } keyValueData[index].name = n.value.trim(); keyValueData[index].value = v.value.trim(); keyValueData[index].isEditing = false; renderConfigTable(); }
+    function deleteRow(index) { keyValueData.splice(index, 1); renderConfigTable(); }
+    function addNewRow() { if (keyValueData.some(item => item.isEditing && !item.name.trim())) return; keyValueData.push({ name: '', value: '', isEditing: true }); renderConfigTable(); }
+
+    function escapeHtml(value) {
+      return String(value ?? '').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;').replace(/'/g, '&#039;');
+    }
+    function escapeJs(value) { return String(value ?? '').replace(/\\/g, '\\\\').replace(/'/g, "\\'").replace(/\n/g, '\\n'); }
+
+    tabButtons.forEach(button => button.addEventListener('click', () => selectTab(button.getAttribute('data-tab'))));
+
+    </script>
+</body>
+</html>

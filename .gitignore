@@ -1,0 +1,16 @@
+.venv/
+__pycache__/
+*.py[cod]
+.runtime/
+runtime/scripts/*
+!runtime/scripts/.gitkeep
+runtime/history/*
+!runtime/history/.gitkeep
+.DS_Store
+.idea/
+.vscode/
+dist
+build
+# MCP Hub runtime/install cache
+runtime/mcp-hub/
+vendor/mcp-hub/node_modules/
